@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using laba4_POP3_server;
 using laba4_POP3_server_.DatabaseContext.Tables;
@@ -12,6 +11,8 @@ namespace laba4_POP3_server_
 {
     class Session : ISession
     {
+        private static List<int> userIds = new List<int>();
+
         private Socket client;
         private string userName;
         private int userId;
@@ -173,14 +174,17 @@ namespace laba4_POP3_server_
             using (var db = new UserContext())
             {
                 userId = db.Users.FirstOrDefault(x => x.Name == user && x.Password == pass).Id;
-                if (POP3Server.UserIds.Contains(userId))
+                if (userIds.Contains(userId))
                 {
                     userId = 0;
                     Send(Status.ERR, "maildrop already locked");
                 }
                 else
                 {
-                    POP3Server.LoginUser(this, userId);
+                    lock (client)
+                    {
+                        userIds.Add(userId);
+                    }
                     messagesForDelete = new List<int>();
                     long size;
                     Send(Status.OK,
@@ -197,7 +201,11 @@ namespace laba4_POP3_server_
             if (userId != 0)
             {
                 Update();
-                POP3Server.LogoutUser(this, userId);
+                lock (client)
+                {
+                    var user = userIds.FirstOrDefault(x => x == userId);
+                    userIds.Remove(user);
+                }
                 userId = 0;
 }
             return true;
@@ -225,9 +233,7 @@ namespace laba4_POP3_server_
             }
         }
 
-        private delegate void RunSomeCommand(int num, List<Message> messages);
-
-        private void RunWithMessageNum(string strNum, RunSomeCommand someCommand)
+        private void RunWithMessageNum(string strNum, Action<int, List<Message>> someCommand)
         {
             var num = GetNum(strNum);
             if (num != 0)

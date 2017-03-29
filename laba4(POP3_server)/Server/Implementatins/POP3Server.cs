@@ -13,8 +13,6 @@ namespace laba4_POP3_server_
         private readonly IPEndPoint endPoint = new IPEndPoint(IPAddress.Parse("192.168.56.1"), 110);
         private Task[] sessions = new Task[0];
 
-        public static List<int> UserIds { get; set; } = new List<int>();
-
         public void Listen()
         {
             var server = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -46,23 +44,6 @@ namespace laba4_POP3_server_
                 server.Close();
                 Console.WriteLine("Server was stoped.");
                 Task.WaitAll(sessions);
-            }
-        }
-
-        public static void LoginUser(Session client, int userId)
-        {
-            lock (client)
-            {
-                UserIds.Add(userId);
-            }
-        }
-
-        public static void LogoutUser(Session client, int userId)
-        {
-            lock (client)
-            {
-                var user = UserIds.FirstOrDefault(x => x == userId);
-                UserIds.Remove(user);
             }
         }
     }
